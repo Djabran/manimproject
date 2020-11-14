@@ -1,1 +1,3 @@
-tex/
+tex/*
+media/videos/
+__pycache__/
