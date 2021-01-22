@@ -1,7 +1,5 @@
-from manimlib.imports import *
-from manimlib.constants import BLACK, BLUE_A, BLUE_B, BLUE, BLUE_D, BLUE_E, DARK_BLUE, DARK_GREY, GREEN_A, GREEN_B,\
-    GREEN, GREEN_D, GREEN_E, GREY, LIGHT_GREY, MAROON_A, MAROON_B, RED, RED_D, TEAL, WHITE, YELLOW
-
+from manim import *
+from colors import *
 from math import *
 
 from basicobjects import *
@@ -47,10 +45,10 @@ def intersect(a, b, trace_curve=False, tolerance=0.05, radius_error=0.2, use_ave
         else return the coords of the intersection
     """
     if not trace_curve and isinstance(a, Line) and isinstance(b, Line):
-        a_0 = Vec2(a.points[0])
-        a_1 = Vec2(a.points[3])
-        b_0 = Vec2(b.points[0])
-        b_1 = Vec2(b.points[3])
+        a_0 = Vec(a.points[0])
+        a_1 = Vec(a.points[3])
+        b_0 = Vec(b.points[0])
+        b_1 = Vec(b.points[3])
 
         if a_1.x == a_0.x:
             # a is vertical
@@ -116,17 +114,17 @@ def phi_of_vector(vector):
     vector[1] = vector[2]
     return np.angle(complex(*vector[:2]))
 
-class LabeledVector(VGroup):
 
-    def __init__(self):
+class LabeledVector(CurvedArrow):
 
-# class LabeledVector(CurvedArrow):
-#
-#     def __init__(self, *args, stroke_width=2, color=WHITE, **kwargs):
-#         super().__init__(start_point=ORIGIN, end_point=args[0], angle=0, num_components=2,
-#                          stroke_width=stroke_width, color=color)
-#         self.points[-1] = args[0]
-#
+    def align_points_with_larger(self, larger_mobject):
+        pass
+
+    def __init__(self, *args, stroke_width=2, color=WHITE, **kwargs):
+        super().__init__(start_point=ORIGIN, end_point=args[0], angle=0, num_components=2,
+                         stroke_width=stroke_width, color=color)
+        self.points[-1] = args[0]
+
     # def position_tip(self, tip, at_start=False):
     #     # Last two control points, defining both
     #     # the end, and the tangency direction
@@ -149,7 +147,10 @@ class LabeledVector(VGroup):
 
 class NullCircle(Circle):
 
-    def __init__(self, scene=None, anim=None, run_time=1.0, **kwargs):
+    def align_points_with_larger(self, larger_mobject):
+        pass
+
+    def __init__(self, anim=None, run_time=1.0, **kwargs):
         super().__init__(radius=NULL_CIRCLE_RADIUS, color=NULL_POINT_COLOR, **kwargs)
         if scene is not None:
             if anim is None:
@@ -157,11 +158,14 @@ class NullCircle(Circle):
             scene.play(anim, run_time=run_time)
 
 
-class LabeledDot(VGroup, SceneElement):
+class LDot(VGroup, SceneElement):
 
-    label_offset = np.array([0.3, -0.3, 0])
+    def align_points_with_larger(self, larger_mobject):
+        pass
 
-    def __init__(self, *label_args, pos=(0, 0), radius=0.08, color=WHITE, dot_class=None, scene=None,
+    label_offset = vec(0.3, -0.3, 0)
+
+    def __init__(self, *label_args, pos=(0, 0), radius=0.08, color=WHITE, dot_class=None,
                  anims=None, draw_bases=False, **kwargs):
         if dot_class is None:
             dot_class = Sphere if len(pos) == 3 else Dot
@@ -171,7 +175,7 @@ class LabeledDot(VGroup, SceneElement):
         dot = dot_class(radius=radius, color=color, **dot_args)
         dot.group = self
         if label_args:
-            label = TexMobject(*label_args, color=color)
+            label = MathTex(*label_args, color=color)
             label.group = self
             label.next_to(dot, direction=RIGHT, buff=0.1)
             VGroup.__init__(self, dot, label, **kwargs)
@@ -179,7 +183,7 @@ class LabeledDot(VGroup, SceneElement):
             VGroup.__init__(self, dot, **kwargs)
 
         if type(pos) == tuple:
-            coords = np.array([pos[0], pos[1], pos[2] if len(pos) == 3 else 0])
+            coords = vec(pos[0], pos[1], pos[2] if len(pos) == 3 else 0)
         else:
             coords = pos
         self.move_to(coords)
@@ -255,6 +259,9 @@ class NullSphere(Sphere):
 
 class NullPoint(LabeledDot):
 
+    def align_points_with_larger(self, larger_mobject):
+        pass
+
     def __init__(self, circle_or_sphere, proportion=0, *label_args, color=NULL_POINT_COLOR, updater=None,
                  call_updater=False, anims=None, **kwargs):
         """
@@ -306,7 +313,7 @@ class NullPoint(LabeledDot):
         #             anims = (GrowFromCenter(self.dot()),)
         #     scene.play(*anims)
 
-    def animate(self, scene, target_alpha=1.0, updater=None, call_updater=False, *args, **kwargs):
+    def animate(self, target_alpha=1.0, updater=None, call_updater=False, *args, **kwargs):
         if updater is not None:
             self.add_updater(updater, call_updater=call_updater)
         scene.play(self.value_tracker.increment_value, target_alpha, *args, **kwargs)
@@ -329,9 +336,12 @@ class NullPoint(LabeledDot):
 
 class NullPlane(ParametricSurface, SceneElement):
 
+    def align_points_with_larger(self, larger_mobject):
+        pass
+
     RADIUS = NULL_CIRCLE_RADIUS
 
-    def __init__(self, point=None, proportion=0, scene=None, **kwargs):
+    def __init__(self, point=None, proportion=0, **kwargs):
         """
         The plane parallel to the tangent plane if the given point
         """
@@ -344,7 +354,7 @@ class NullPlane(ParametricSurface, SceneElement):
                                    stroke_width=0,
                                    resolution=(20, 20),
                                    **kwargs)
-        SceneElement.__init__(self, scene=scene)
+        SceneElement.__init__(self)
 
     def func(self, u, v):
         """
@@ -385,23 +395,25 @@ class NullPlane(ParametricSurface, SceneElement):
 
 class LabeledLine(VGroup, SceneElement):
 
+    def align_points_with_larger(self, larger_mobject):
+        pass
+
     def __init__(self, label, start=LEFT, end=RIGHT, color=BLUE, label_proportion=0.333, label_distance=0.3,
-                 scene=None, anims=None, **kwargs):
+                 anims=None, **kwargs):
         line = Line(np.array([start[0], start[1], 0]), np.array([end[0], end[1], 0]), color=color, **kwargs)
         line.group = self
         if label is not None:
-            label = TexMobject(label, color=color)
+            label = MathTex(label, color=color)
             label.group = self
         VGroup.__init__(self, line, label,
-                         scene=scene,
                          anims=[GrowFromCenter(self.line()), FadeIn(self.label())] if anims is None else anims)
-        SceneElement.__init__(self, scene=scene, anims=anims)
+        SceneElement.__init__(self, anims=anims)
         self.set_label_pos(label_proportion, label_distance)
         self.initial_line_state = self.line().copy()
         self.value_tracker = ValueTracker(0)
         self.line().clear_updaters()
 
-    def animate(self, scene, target_alpha=1.0, *args, updater=None, func=None, **kwargs):
+    def animate(self, target_alpha=1.0, *args, updater=None, func=None, **kwargs):
         if updater:
             self.add_updater(updater, index=0, call_updater=False)
         scene.play(self.value_tracker.increment_value if func is None else func, target_alpha, *args, **kwargs)
@@ -430,7 +442,7 @@ class LabeledLine(VGroup, SceneElement):
 
 
 class NullLine(LabeledLine):
-    def __init__(self, proportion, color=NULL_POINT_COLOR, anims=None, label=None, scene=None, **kwargs):
+    def __init__(self, proportion, color=NULL_POINT_COLOR, anims=None, label=None, **kwargs):
         alpha = TAU * proportion
         x2 = cos(alpha)
         y2 = sin(alpha)
@@ -459,5 +471,5 @@ class NullLine(LabeledLine):
             y = FRAME_Y_RADIUS
         end = np.array([x, y, 0])
         start = -end
-        super().__init__(label, start, end, color=color, scene=scene, anims=anims, **kwargs)
+        super().__init__(label, start, end, color=color, anims=anims, **kwargs)
 

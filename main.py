@@ -1,18 +1,31 @@
-from manimlib.imports import *
-from manimlib.constants import *
-from manimlib import main
-import manimlib
-# from checkformula import *
+import re
+import manim
+import logging
+from itertools import chain
+from manim import *
+from manim.__main__ import main
+from colors import *
+from manim.constants import *
 from glob import glob
-from manimlib.constants import BLACK, BLUE_A, BLUE_B, BLUE, BLUE_D, BLUE_E, DARK_BLUE, DARK_GREY, GREEN_A, GREEN_B,\
-    GREEN, GREEN_D, GREEN_E, GREY, LIGHT_GREY, MAROON_A, MAROON_B, RED, RED_D, TEAL, WHITE, YELLOW
-
+#import monkey
 from geometryobjects import *
+from eq import *
 
-Camera.CONFIG['background_color'] = '#002b36'
+config.background_color = '#002b36'
+
+logger.setLevel(logging.WARNING)
 
 
-class ProjectiveGeometry(SceneBase):
+class ConeTest(SceneBase):
+
+    def construct(self):
+        self.set_camera_orientation(60*DEGREES, -75*DEGREES, distance=20, gamma=0*DEGREES)
+        Axes3D(self)
+        Cone(RIGHT, ORIGIN, radius=0.2)
+        self.wait()
+
+
+class ProjectiveGeometry3d(SceneBase):
 
     def construct(self):
         self.show_title("Planes")
@@ -27,16 +40,25 @@ class ProjectiveGeometry(SceneBase):
             "Q": NULL_POINT_COLOR_BRIGHT
         })
 
-        P = LabeledDot("P", pos=(1, 1, 1), color=BLUE, scene=self, draw_bases=True)
+        P = LDot("P", pos=(1, 1, 1), color=BLUE, radius=0.05, draw_bases=True)
 
-        textblock = TextBlock(scene=self, color_map=color_map, remover=False)
+        textblock = TextBlock(color_map=color_map, remover=False)
         textblock += MText("We want to construct a plane through the origin")
         textblock += MText("perpendicular to a given point ")("$P$")
 
-        self.add(LabeledVector(P.pos()))
+        # v = CurvedArrow(start_point=ORIGIN, end_point=np.array([1,1,1]), angle=0,
+        #                     color=GOLD_D)
+        # v.rotate(45 * DEGREES, (1,-1,0))
+        # v.shift(np.array([0,0,0.5]))
+        # self.add(v)
+
+        v = Line(vec(0,0,0), vec(1,1,1))
+        self.add(v)
+
+        # self.add(LabeledVector(P.pos()))
 
         self.begin_ambient_camera_rotation(1)
-        self.wait()
+        self.wait(TAU + 15 * DEGREES)
 
 
 class LineIntersection(Scene):
@@ -58,7 +80,7 @@ class LineIntersection(Scene):
                 "stroke_opacity": 0.3,
             })
 
-        title = TextMobject("Intersection between two lines")
+        title = Tex("Intersection between two lines")
         self.wait(1)
         self.play(FadeOut(title))
 
@@ -88,10 +110,10 @@ class LineIntersection(Scene):
         coords_a_1 = (2, 2.5)
         coords_b_0 = (0, -3,)
         coords_b_1 = (4, 1)
-        a_0 = LabeledDot(f"{tex_a_0}{coords_a_0}", coords_a_0, color=BLUE)
-        a_1 = LabeledDot(f"{tex_a_1}{coords_a_1}", coords_a_1, color=BLUE)
-        b_0 = LabeledDot(f"{tex_b_0}{coords_b_0}", coords_b_0, color=GREEN)
-        b_1 = LabeledDot(f"{tex_b_1}{coords_b_1}", coords_b_1, color=GREEN)
+        a_0 = LDot(f"{tex_a_0}{coords_a_0}", coords_a_0, color=BLUE)
+        a_1 = LDot(f"{tex_a_1}{coords_a_1}", coords_a_1, color=BLUE)
+        b_0 = LDot(f"{tex_b_0}{coords_b_0}", coords_b_0, color=GREEN)
+        b_1 = LDot(f"{tex_b_1}{coords_b_1}", coords_b_1, color=GREEN)
         self.play(GrowFromCenter(a_0), FadeIn(a_0.label),
                   GrowFromCenter(a_1), FadeIn(a_1.label),
                   GrowFromCenter(b_0), FadeIn(b_0.label),
@@ -99,13 +121,13 @@ class LineIntersection(Scene):
         a = LabeledLine("a", coords_a_0, coords_a_1, color=BLUE)
         b = LabeledLine("b", coords_b_0, coords_b_1, color=GREEN)
         # a.line().rotate(TAU / 8)
-        label_np_y = TextMobject("1").move_to(np.array([0.2, 0.83, 0])).set_color(AXES_COLOR).scale(0.6)
-        label_np_x = TextMobject("1").move_to(np.array([1.2, -0.17, 0])).set_color(AXES_COLOR).scale(0.6)
+        label_np_y = Tex("1").move_to(np.array([0.2, 0.83, 0])).set_color(AXES_COLOR).scale(0.6)
+        label_np_x = Tex("1").move_to(np.array([1.2, -0.17, 0])).set_color(AXES_COLOR).scale(0.6)
 
         coords = intersect(a.line(), b.line(), trace_curve=False)
 
         if is_coords(coords):
-            P = LabeledDot("P", coords)
+            P = LDot("P", coords)
             self.add(number_plane, label_np_x, label_np_y, a, b, P.group)
         else:
             assert is_number(coords)
@@ -135,8 +157,7 @@ class LineIntersection(Scene):
 
         text.append_tex(tex_a_0_y, "+", "a'", "(x-", tex_a_0_x, ")=",
                         tex_b_0_y, "+", "b'", "(x-", tex_b_0_x, ")",
-                        pos=3*LEFT + 2*UP,
-                        scene=self)
+                        pos=3*LEFT + 2*UP)
 
         # text.append(f"${{{tex_a_0}}}_y$", "$-$", f"${{{tex_b_0}}}_y$", "$=$",
         #             "$b'$", "$(x-$", f"${{{tex_b_0}}}_x$", "$)-$", "$a'$", "$(x-$", f"${{{tex_a_0}}}_x$", "$)$",
@@ -167,7 +188,8 @@ class LineIntersection(Scene):
                     pos=4*LEFT + 3*DOWN)
 
 
-class ProjectiveGeometry2(SceneBase):
+class ProjectiveGeometry(SceneBase):
+
     def construct(self):
         self.show_title("Projective Geometry 3D")
         axes = ThreeDAxes(x_min=-3.5, y_min=-3.5, x_max=5, y_max=3, z_min=-3.5, z_max=3.5,
@@ -195,11 +217,11 @@ class ProjectiveGeometry2(SceneBase):
         self.set_camera_orientation(60*DEGREES, -90*DEGREES, distance=20, gamma=0*DEGREES)
         null_sphere = NullSphere()
 
-        null_point = NullPoint(null_sphere, (Proportion(0), Proportion(1, 5)), scene=self)
+        null_point = NullPoint(null_sphere, (Proportion(0), Proportion(1, 5)))
         print(f"null_point: {null_point.get_x()},{null_point.get_y()},{null_point.get_z()}")
         self.add(null_sphere)
 
-        null_plane = NullPlane(point=null_point, proportion=0, scene=self)
+        null_plane = NullPlane(point=null_point, proportion=0)
         # self.begin_ambient_camera_rotation(0.1)
         # self.wait(20)
 
@@ -216,7 +238,7 @@ class ProjectiveGeometry2(SceneBase):
             "Q": NULL_POINT_COLOR_BRIGHT
         })
 
-        textblock = TextBlock(color_map=color_map, scene=self, remover=False)
+        textblock = TextBlock(color_map=color_map, remover=False)
         textblock += MText() + "We have a point " + "$P$" + " on the null sphere"
         textblock += MText() + "Let's find the plane through the origin parallel to the"
         textblock += MText() + "tangent plane of " + "$P$"
@@ -292,7 +314,7 @@ class ProjectiveGeometry1(SceneBase):
 
         self.subscene_null_point_and_line()
 
-        textblock = TextBlock("The same principle can be applied in 3D", scene=self)
+        textblock = TextBlock("The same principle can be applied in 3D")
         textblock.append("where the we have planes instead of lines")
         textblock.append("and balls instead of circles")
         del textblock
@@ -311,7 +333,7 @@ class ProjectiveGeometry1(SceneBase):
                 "number_scale_val": 0.5,
             })
 
-        null_circle = NullCircle(scene=self, run_time=0.5)
+        null_circle = NullCircle(run_time=0.5)
 
         color_map = ColorMap({
             "O": NULL_POINT_COLOR,
@@ -322,11 +344,11 @@ class ProjectiveGeometry1(SceneBase):
             "P'": GREEN
         })
 
-        textblock = TextBlock("Choose an arbitrary point ", "$P$", " on ", r"$O^\circ$", color_map=color_map, scene=self)
+        textblock = TextBlock("Choose an arbitrary point ", "$P$", " on ", r"$O^\circ$", color_map=color_map)
 
         print("create null point")
 
-        P = NullPoint(null_circle, 0, "P", color=NULL_POINT_COLOR_BRIGHT, scene=self)
+        P = NullPoint(null_circle, 0, "P", color=NULL_POINT_COLOR_BRIGHT)
 
         print("rotate null point once counter-clockwise")
 
@@ -344,7 +366,7 @@ class ProjectiveGeometry1(SceneBase):
 
         print("create null line")
 
-        p = NullLine(0, label="p", scene=self)
+        p = NullLine(0, label="p")
         self.bring_to_front(P)
         textblock.bring_to_front(self)
         self.play(FadeOut(p.label()))
@@ -373,14 +395,14 @@ class ProjectiveGeometry1(SceneBase):
         print("create projection line g")
 
         textblock = TextBlock("$P$", " can be projected on a line ", "$g$", " not going through ", "$O$",
-                              color_map=color_map, scene=self)
+                              color_map=color_map)
 
-        g = LabeledLine("g", (-FRAME_X_RADIUS, -2.3), (FRAME_X_RADIUS, -2.3), color=GREEN, scene=self)
+        g = LabeledLine("g", (-FRAME_X_RADIUS, -2.3), (FRAME_X_RADIUS, -2.3), color=GREEN)
 
         textblock.append("to a point ", "$P'$", " := ", "$p$", r"$\cross$", "$g$")
 
         coords = intersect(p.line(), g.line(), trace_curve=False, tolerance=0.045, use_average=False)
-        P_ = LabeledDot("P'", color=GREEN)
+        P_ = LDot("P'", color=GREEN)
         if is_coords(coords):
             P_.move_to(coords)
             self.play(GrowFromCenter(P_.dot()), FadeIn(P_.label()))
@@ -401,7 +423,7 @@ class ProjectiveGeometry1(SceneBase):
                     run_time=4.5)
 
         textblock = TextBlock("When ", "$p$", " and ", "$g$", " are parallel, we project ", "$P$", " to ", "$O$",
-                              color_map=color_map, scene=self)
+                              color_map=color_map)
         UpdateGroup(self,
                     (p, line_rotation_updater),
                     (P_, intersection_updater),
@@ -415,8 +437,20 @@ class ProjectiveGeometry1(SceneBase):
         self.play(FadeOut(number_plane))
 
 
-class SnapshotScene(ProjectiveGeometry):
-    pass
+# class ProjectiveGeometry(GeometricSeries): pass
+# class ProjectiveGeometry(ProjectiveGeometry3d): pass
+
+class SnapshotScene(SceneBase):
+
+    def construct(self):
+        Eq.new_line = True
+        Eq.animate = True
+        Eq.align = True
+        eq = Eq(r"1 \cdot 2 \cdot 3 = 4 \cdot 5 \cdot 6")
+        eq1 = add(eq)
+        eq2 = eq1 * 2
+
+        wait()
 
 
 if __name__ == '__main__':

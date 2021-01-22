@@ -1,4 +1,4 @@
-from manimlib.imports import *
+from manim import *
 
 
 class FourierCirclesScene(ZoomedScene):
@@ -352,7 +352,7 @@ class AbstractFourierOfTexSymbol(FourierCirclesScene):
         "start_drawn": True,
         "path_custom_position": lambda mob: mob,
         "max_circle_stroke_width": 1,
-        "tex_class": TexMobject,
+        "tex_class": MathTex,
         "tex_config": {
             "fill_opacity": 0,
             "stroke_width": 1,
