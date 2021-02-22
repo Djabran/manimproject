@@ -11,6 +11,9 @@ NULL_POINT_COLOR_BRIGHT = BLUE_B
 # NULL_SPHERE_RESOLUTION = (24, 36)
 NULL_SPHERE_RESOLUTION = (12, 24)
 
+FRAME_X_RADIUS = 6.0
+FRAME_Y_RADIUS = 4.0
+
 
 def normalize(x):
     n = np.linalg.norm(x)
@@ -152,10 +155,10 @@ class NullCircle(Circle):
 
     def __init__(self, anim=None, run_time=1.0, **kwargs):
         super().__init__(radius=NULL_CIRCLE_RADIUS, color=NULL_POINT_COLOR, **kwargs)
-        if scene is not None:
+        if get_current_scene():
             if anim is None:
                 anim = Write(self)
-            scene.play(anim, run_time=run_time)
+            get_current_scene().play(anim, run_time=run_time)
 
 
 class LDot(VGroup, SceneElement):
@@ -187,20 +190,20 @@ class LDot(VGroup, SceneElement):
         else:
             coords = pos
         self.move_to(coords)
-        if scene is not None:
-            if anims is None:
-                if self.has_label():
-                    scene.add_fixed_orientation_mobjects(self.label())
-                    anims = GrowFromCenter(self.dot()), FadeIn(self.label())
-                else:
-                    anims = (GrowFromCenter(self.dot()),)
+        if get_current_scene():
+            # if anims is None:
+            #     if self.has_label():
+            #         get_current_scene().add_fixed_orientation_mobjects(self.label())
+            #         anims = GrowFromCenter(self.dot()), FadeIn(self.label())
+            #     else:
+            #         anims = (GrowFromCenter(self.dot()),)
             if draw_bases:
                 x, y, z = self.dot().get_x(), self.dot().get_y(), self.dot().get_z()
-                scene.add(Line(vec(0, y, 0), vec(x, y, 0), stroke_width=1, color=DARK_GREY))
-                scene.add(Line(vec(x, 0, 0), vec(x, y, 0), stroke_width=1, color=DARK_GREY))
-                scene.add(Line(vec(x, y, 0), vec(x, y, z), stroke_width=1, color=DARK_GREY))
-                scene.bring_to_front(self.dot())
-            scene.play(*anims)
+                get_current_scene().add(Line(vec(0, y, 0), vec(x, y, 0), stroke_width=1, color=DARK_GREY))
+                get_current_scene().add(Line(vec(x, 0, 0), vec(x, y, 0), stroke_width=1, color=DARK_GREY))
+                get_current_scene().add(Line(vec(x, y, 0), vec(x, y, z), stroke_width=1, color=DARK_GREY))
+                get_current_scene().bring_to_front(self.dot())
+            # get_current_scene().play(*anims)
 
     def pos(self):
         return vec(self.get_x(), self.get_y(), self.get_z() if self.dim == 3 else 0)
@@ -227,18 +230,18 @@ class LDot(VGroup, SceneElement):
         self.dot().set_x(x)
         self.dot().set_y(y)
         if self.has_label():
-            self.label().set_x(x + LabeledDot.label_offset[0])
+            self.label().set_x(x + LDot.label_offset[0])
             return self.label().set_y(y)
         else:
             return self
 
     def set_x(self, x, direction=ORIGIN) -> Mobject:
         self.dot().set_x(x)
-        return self.label().set_x(x + LabeledDot.label_offset[0])
+        return self.label().set_x(x + LDot.label_offset[0])
 
     def set_y(self, y, direction=ORIGIN):
         self.dot().set_y(y)
-        return self.label().set_y(y + LabeledDot.label_offset[1])
+        return self.label().set_y(y + LDot.label_offset[1])
 
     def add_updater(self, func, **kwargs):
         self.dot().add_updater(func, **kwargs)
@@ -257,7 +260,7 @@ class NullSphere(Sphere):
                          )
 
 
-class NullPoint(LabeledDot):
+class NullPoint(LDot):
 
     def align_points_with_larger(self, larger_mobject):
         pass
@@ -280,11 +283,12 @@ class NullPoint(LabeledDot):
         self.updater = updater
         if isinstance(circle_or_sphere, Circle):
             if label_args:
-                super().__init__(*label_args, color=color, **kwargs)
+                super().__init__(*label_args, color=color, anims=anims, **kwargs)
             else:
-                super().__init__(**kwargs)
+                super().__init__(**kwargs, anims=anims)
             self.value_tracker = ValueTracker(proportion)
             self.move_to(vec(NULL_CIRCLE_RADIUS * cos(proportion * TAU), NULL_CIRCLE_RADIUS * sin(proportion * TAU), 0))
+            play(GrowFromCenter(self, **kwargs))
         else:
             if label_args:
                 super().__init__(*label_args, color=color, dot_class=Sphere, fill_color=color,
@@ -313,10 +317,10 @@ class NullPoint(LabeledDot):
         #             anims = (GrowFromCenter(self.dot()),)
         #     scene.play(*anims)
 
-    def animate(self, target_alpha=1.0, updater=None, call_updater=False, *args, **kwargs):
+    def animate(self, target_alpha=1.0, *args, updater=None, call_updater=False, **kwargs):
         if updater is not None:
             self.add_updater(updater, call_updater=call_updater)
-        scene.play(self.value_tracker.increment_value, target_alpha, *args, **kwargs)
+        get_current_scene().play(self.value_tracker.set_value, target_alpha, *args, **kwargs)
         self.dot().clear_updaters()
 
     def set_updater(self, updater, proportion=0):
@@ -327,11 +331,11 @@ class NullPoint(LabeledDot):
 
     def set_x(self, x, direction=ORIGIN):
         self.dot().set_x(x)
-        return self.label().set_x(x + LabeledDot.label_offset[0])
+        return self.label().set_x(x + LDot.label_offset[0])
 
     def set_y(self, y, direction=ORIGIN):
         self.dot().set_y(y)
-        return self.label().set_y(y + LabeledDot.label_offset[1])
+        return self.label().set_y(y + LDot.label_offset[1])
 
 
 class NullPlane(ParametricSurface, SceneElement):
@@ -406,7 +410,7 @@ class LabeledLine(VGroup, SceneElement):
             label = MathTex(label, color=color)
             label.group = self
         VGroup.__init__(self, line, label,
-                         anims=[GrowFromCenter(self.line()), FadeIn(self.label())] if anims is None else anims)
+                         anims=[GrowFromCenter(line), FadeIn(label)] if anims is None else anims)
         SceneElement.__init__(self, anims=anims)
         self.set_label_pos(label_proportion, label_distance)
         self.initial_line_state = self.line().copy()
@@ -416,7 +420,7 @@ class LabeledLine(VGroup, SceneElement):
     def animate(self, target_alpha=1.0, *args, updater=None, func=None, **kwargs):
         if updater:
             self.add_updater(updater, index=0, call_updater=False)
-        scene.play(self.value_tracker.increment_value if func is None else func, target_alpha, *args, **kwargs)
+        get_current_scene().play(self.value_tracker.set_value if func is None else func, target_alpha, *args, **kwargs)
         self.line().clear_updaters()
 
     def add_updater(self, func, **kwargs):
@@ -448,27 +452,27 @@ class NullLine(LabeledLine):
         y2 = sin(alpha)
         # http://localhost:8888/notebooks/BoundedLine.ipynb
 
-        y = FRAME_Y_RADIUS
+        y = config.frame_height / 2
         if y2 == 0:
             t = 0
-            x = FRAME_X_RADIUS
+            x = config.frame_width / 2
         elif x2 != 0:
             t = y2/x2
             x = y / t
 
         if x2 != 0:
-            if abs(x) >= FRAME_X_RADIUS:
-                if x >= FRAME_X_RADIUS:
+            if abs(x) >= config.frame_width / 2:
+                if x >= config.frame_width / 2:
                     # hit right boundary
-                    x = FRAME_X_RADIUS
+                    x = config.frame_width / 2
                     y = t * x
                 else:
                     # hit left boundary
-                    x = -FRAME_X_RADIUS
+                    x = -config.frame_width / 2
                     y = t * x
         else:
             x = 0
-            y = FRAME_Y_RADIUS
+            y = config.frame_height / 2
         end = np.array([x, y, 0])
         start = -end
         super().__init__(label, start, end, color=color, anims=anims, **kwargs)

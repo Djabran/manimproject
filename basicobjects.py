@@ -211,7 +211,7 @@ class UpdateGroup:
         self.updater_infos = updater_infos
         for updater_info in self.updater_infos:
             updater_info[0].add_updater(updater_info[1], call_updater=False)
-        anchor.animate(current_scene, end, func=func, updater=anchor_updater, run_time=run_time)
+        anchor.animate(end, func=func, updater=anchor_updater, run_time=run_time)
 
     def __del__(self):
         for updater_info in self.updater_infos:
@@ -286,12 +286,16 @@ def set_current_scene(scene):
     current_scene = scene
 
 
+def get_current_scene():
+    return current_scene
+
+
 def play(*args, **kwargs):
     current_scene.play(*args, **kwargs)
 
 
-def wait(*args):
-    current_scene.wait(*args)
+def wait(secs=1.0):
+    current_scene.wait(secs)
 
 
 def show_title(*args, **kwargs):
@@ -483,7 +487,6 @@ def substitute_parts(eq1, eq2, *tex_parts, additional_anims=[], **kwargs):
     play(*(anims + additional_anims))
 
 
-class Move(RT):
-    def __init__(self, source, target, shift=ORIGIN, **kwargs):
-        obj_copy = source.copy().next_to(target, shift)
-        super().__init__(source, obj_copy, **kwargs)
+def camera(*args, **kwargs):
+    current_scene.set_camera_orientation(*args, **kwargs)
+

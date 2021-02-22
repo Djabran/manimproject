@@ -19,7 +19,7 @@ logger.setLevel(logging.WARNING)
 class ConeScene(SceneBase):
 
     def construct(self):
-        self.set_camera_orientation(60*DEGREES, -75*DEGREES, distance=20, gamma=0*DEGREES)
+        camera(60*DEGREES, -75*DEGREES, distance=20, gamma=0*DEGREES)
         Axes3D()
         # Cone(tip=OUT, foot=vec(1,1,1), radius=1)
         color_map = ColorMap({
@@ -71,6 +71,8 @@ class ConeScene(SceneBase):
         tb.append("A circle perpendicular to ", r"$\overline{TF}$",  " around ", "$F$", " has the given radius ", "$r$")
         self.add_fixed_in_frame_mobjects(*tb.texts)
 
+        tb.append("yeh")
+
         bring_to_front(T, F)
         play(vt.set_value, 1, run_time=3)
         Q = Sphere(fill_color=RED, stroke_color=RED, radius=0.05).move_to(F_coords)
@@ -87,7 +89,6 @@ class ConeScene(SceneBase):
         vt.set_value(0)
         tb.fade_out()
         play(vt.set_value, 1, run_time=3)
-
         self.begin_ambient_camera_rotation(0.5)
         self.wait(1)
         self.stop_ambient_camera_rotation()

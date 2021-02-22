@@ -1,15 +1,21 @@
+import os
 import re
 import manim
 import logging
 from itertools import chain
 from manim import *
-from manim.__main__ import main
+from manim.__main__ import main, open_file_if_needed, open_media_file
 from colors import *
 from manim.constants import *
 from glob import glob
 #import monkey
 from geometryobjects import *
 from eq import *
+from rich import print
+import rich.traceback
+from PtolemaeusTheorem import *
+
+rich.traceback.install()
 
 config.background_color = '#002b36'
 
@@ -217,7 +223,7 @@ class ProjectiveGeometry(SceneBase):
         self.set_camera_orientation(60*DEGREES, -90*DEGREES, distance=20, gamma=0*DEGREES)
         null_sphere = NullSphere()
 
-        null_point = NullPoint(null_sphere, (Proportion(0), Proportion(1, 5)))
+        null_point = NullPoint(null_sphere, (Proportion(0), Proportion(1, 5)), label="O")
         print(f"null_point: {null_point.get_x()},{null_point.get_y()},{null_point.get_z()}")
         self.add(null_sphere)
 
@@ -309,6 +315,7 @@ class ProjectiveGeometry(SceneBase):
 
 
 class ProjectiveGeometry1(SceneBase):
+
     def construct(self):
         self.show_title("Projective Geometry 2D")
 
@@ -360,7 +367,7 @@ class ProjectiveGeometry1(SceneBase):
             obj.group.set_x(cos(v * TAU) * NULL_CIRCLE_RADIUS)
             obj.group.set_y(sin(v * TAU) * NULL_CIRCLE_RADIUS)
 
-        P.animate(self, 1.0, updater=point_rotation_updater, call_updater=False, run_time=3, rate_func=smooth)
+        P.animate(1.0, updater=point_rotation_updater, call_updater=False, run_time=3, rate_func=smooth)
 
         textblock.append("$P$", " is represented by a line ", "$p$", " through the origin")
 
@@ -368,7 +375,7 @@ class ProjectiveGeometry1(SceneBase):
 
         p = NullLine(0, label="p")
         self.bring_to_front(P)
-        textblock.bring_to_front(self)
+        textblock.bring_to_front()
         self.play(FadeOut(p.label()))
 
         print("create and rotate null point and line")
@@ -384,8 +391,7 @@ class ProjectiveGeometry1(SceneBase):
         target_alpha_P = 1.065
         run_time_P = target_alpha_P * 4.5
 
-        UpdateGroup(self,
-                    (p, line_rotation_updater),
+        UpdateGroup((p, line_rotation_updater),
                     (P, lambda obj: point_rotation_updater(obj, p.value_tracker.get_value())),
                     end=target_alpha_P,
                     run_time=run_time_P)
@@ -397,7 +403,7 @@ class ProjectiveGeometry1(SceneBase):
         textblock = TextBlock("$P$", " can be projected on a line ", "$g$", " not going through ", "$O$",
                               color_map=color_map)
 
-        g = LabeledLine("g", (-FRAME_X_RADIUS, -2.3), (FRAME_X_RADIUS, -2.3), color=GREEN)
+        g = LabeledLine("g", (-config.frame_width / 2, -2.3), (config.frame_width / 2, -2.3), color=GREEN)
 
         textblock.append("to a point ", "$P'$", " := ", "$p$", r"$\cross$", "$g$")
 
@@ -416,25 +422,23 @@ class ProjectiveGeometry1(SceneBase):
                 obj.group.set_x(0)
                 obj.group.set_y(0)
 
-        UpdateGroup(self,
-                    (p, line_rotation_updater),
+        UpdateGroup((p, line_rotation_updater),
                     (P_, intersection_updater),
                     (P, lambda obj: point_rotation_updater(obj, p.value_tracker.get_value())),
                     run_time=4.5)
 
         textblock = TextBlock("When ", "$p$", " and ", "$g$", " are parallel, we project ", "$P$", " to ", "$O$",
                               color_map=color_map)
-        UpdateGroup(self,
-                    (p, line_rotation_updater),
+        UpdateGroup((p, line_rotation_updater),
                     (P_, intersection_updater),
                     (P, lambda obj: point_rotation_updater(obj, p.value_tracker.get_value())),
                     start=target_alpha_P, end=1.0,
                     func=p.value_tracker.set_value,
                     run_time=1.0)
 
-        self.play(FadeOut(P_))
-        self.play(FadeOut(P), FadeOut(p), FadeOut(g), FadeOut(null_circle))
-        self.play(FadeOut(number_plane))
+        play(FadeOut(P_))
+        play(FadeOut(P), FadeOut(p), FadeOut(g), FadeOut(null_circle))
+        play(FadeOut(number_plane))
 
 
 # class ProjectiveGeometry(GeometricSeries): pass
@@ -453,5 +457,40 @@ class SnapshotScene(SceneBase):
         wait()
 
 
+def openexplorer():
+    if get_current_scene():
+        config.show_in_file_browser = True
+        open_file_if_needed(get_current_scene().renderer.file_writer)
+    else:
+        print("[red]No current scene")
+
+
+def playvid():
+    if get_current_scene():
+        filename = get_current_scene().__class__.__name__ + ".mp4"
+        folder = os.path.join(config.media_dir, "videos", f"{config.pixel_height}p{config.frame_rate}")
+        filepath = os.path.normpath(os.path.join(folder, filename))
+        os.system(filepath)
+        # config.show_in_file_browser = True
+        # open_file_if_needed(get_current_scene().renderer.file_writer)
+    else:
+        print("[red]No current scene")
+
+
+def mm(production_quality=False):
+
+    if production_quality:
+        q = QUALITIES["production_quality"]
+    else:
+        q = QUALITIES["low_quality"]
+    for attr in ("pixel_width", "pixel_height", "frame_rate"):
+        setattr(config, attr, q[attr])
+
+    # SnapshotScene()
+    # ProjectiveGeometry1()
+    PtolemaeusTheorem()
+    get_current_scene().render()
+
+
 if __name__ == '__main__':
-    main()
+    mm()
