@@ -1,19 +1,64 @@
+import subprocess
+import os
+import re
+import datetime
+import time
+from rich.table import Table
+from rich import print
 import os, time
 import re
 from rich import print
-from rich.table import Table
 from rich.live import Live
 import datetime
 from rich.console import Console
+from rich.prompt import Prompt
 import win32ui
 import win32gui
+from context import *
 console = Console(width=200)
+
+screen2_w, screen2_h = 2560, 1440
+screen3_w = 1920
+IPYTHON_W = 1160
+IPYTHON_H = screen2_h - 40
+PYCHARM_POS = (screen3_w, 0)
+IPYTHON_X = screen3_w + screen2_w - IPYTHON_W
+MEDIA_PLAYER_PATTERN = re.compile("Filme & TV", re.I)
+PYCHARM_TESTENV_PATTERN = re.compile("TestEnv " + chr(8211) + " (.*)", re.I)
+ECLIPSE_PATTERN = re.compile("eclipse-.*")
+windows = []
+
+
+def _enum_windows_callback(hwnd, _):
+    global windows
+    windows.append(hwnd)
+
+
+def enum_windows():
+    global windows
+    windows = []
+    win32gui.EnumWindows(_enum_windows_callback, None)
+    return windows
+
+
+CODING_MAP = {
+    ".py": "utf-8",
+    ".bat": "cp1252",
+    ".ddf": "ansi",
+    ".inc": "ansi",
+    ".adl": "ansi",
+    ".yaddl": "ansi",
+    ".template": "ansi",
+    ".log": "ansi",
+    ".feature": "utf-8",
+    ".edf": "ansi"
+}
 
 
 def interactive(func):
-    def wrapper(*args):
+    def wrapper(*args, **kwargs):
         try:
-            func(*args)
+            func(*args, **kwargs)
         except KeyboardInterrupt:
             pass
     return wrapper
@@ -25,6 +70,34 @@ class ITable(Table):
         if num_columns:
             for i in range(num_columns):
                 self.add_column()
+
+
+@interactive
+def robocopy(src, dst, pattern: str = None, exclude_dir: str = None, purge=True):
+    print(f"robocopy {src} -> {dst} pattern: {pattern} exclude_dir: {exclude_dir}...")
+
+    args = ["robocopy", src, dst]
+    if pattern:
+        args += [pattern]
+    args += ["/S"]
+    if purge:
+        args += ["/PURGE"]
+    if exclude_dir:
+        args += ["/XD", exclude_dir]
+
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    print("----- stdout -------")
+    print(stdout.decode('cp850'))
+    print("[red]----- stderr -------")
+    print("[red]" + stderr.decode('cp850'))
+
+
+def date(timestamp) -> str:
+    """
+    File timstamp as readable date string
+    """
+    return datetime.datetime.fromtimestamp(float(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def cwd():
@@ -50,40 +123,91 @@ def _print_if_match(table, pattern, root, s):
 
 
 @interactive
-def ff(directory: str = "C:\\", pattern: str = None):
-    """Find files matching the given regex search"""
+def fif(directory, regex=".*", case_insensitive=True):
+    """
+    Find in files
+    """
+
+    def _search_file(encoding):
+        with open(filepath, "rb") as f:
+            buffer = f.read()
+            try:
+                s = buffer.decode(encoding)
+            except UnicodeDecodeError as ex:
+                print(f"{filepath}: {ex}")
+            else:
+                lines = s.splitlines(keepends=False)
+                found = False
+                for i, line in enumerate(lines):
+                    if re.search(regex, line, flags=re.I if case_insensitive else 0):
+                        found = True
+                        print(f"{filepath}:{i + 1}: {line}")
+                return found
+
+    print(f"find {repr(regex)} in {directory}{' (case insensitive)' if case_insensitive else ''}...")
+    all_files = []
+    found = False
+    for root, folder, files in os.walk(directory, topdown=True):
+        files = [f for f in files if os.path.isfile(root + "/" + f)]
+        for filepath in files:
+            filepath = root + "/" + filepath
+            name, ext = os.path.splitext(filepath)
+            if ext in CODING_MAP:
+                all_files.append(filepath)
+                found |= _search_file(CODING_MAP[ext])
+    if not found:
+        yn = Prompt.ask(f"Nothing found, show Files? ", default="n", choices=["y", "n"])
+        if yn == "y":
+            for f in all_files:
+                print(f)
+
+
+def _walk(walkfunc, directory: str = "C:\\", pattern: str = None):
     _validate_directory(directory)
     table = ITable(show_header=False, num_columns=2)
-    count = 0
     match_count = 0
 
     with Live(table, refresh_per_second=1):
         for root, folders, files in os.walk(directory):
-            for file in files:
-                count += 1
-                if count % 50 == 0:
-                    time.sleep(0.1)
-                if _print_if_match(table, pattern, root, file):
-                    match_count += 1
+            matchcount = walkfunc(root, folders, files, pattern)
 
     print(f"Found {match_count} matches")
 
 
+@interactive
+def ff(directory: str = "C:\\", pattern: str = None):
+    """Find files matching the given regex search"""
 
-screen_w, screen_h = 2560, 1440
-windows = []
+    def _walkfunc(root, folders, files, pattern):
+        count = 0
+        match_count = 0
+        for file in files:
+            count += 1
+            if count % 50 == 0:
+                time.sleep(0.1)
+            if _print_if_match(table, pattern, root, file):
+                match_count += 1
+        return match_count
+
+    _walk(directory, pattern, _walkfunc)
 
 
-def _enum_windows_callback(hwnd, _):
-    global windows
-    windows.append(hwnd)
+@interactive
+def fd(directory: str = "C:\\", pattern: str = None):
+    """Find directories matching the given regex search"""
 
+    def _walkfunc(root, folders, files, pattern):
+        count = 0
+        match_count = 0
+        for folder in folders:
+            count += 1
+            if count % 50 == 0:
+                time.sleep(0.1)
+            if _print_if_match(table, pattern, root, folder):
+                match_count += 1
+        return match_count
 
-def enum_windows():
-    global windows
-    windows = []
-    win32gui.EnumWindows(_enum_windows_callback, None)
-    return windows
+    _walk(directory, pattern, _walkfunc)
 
 
 def _find_window(pattern=None):
@@ -113,67 +237,41 @@ def find_window(pattern):
         print(win32gui.GetWindowText(window))
 
 
-MEDIA_PLAYER_PATTERN = re.compile("Filme & TV", re.I)
-PYCHARM_PATTERN = re.compile("manimproject " + chr(8211) + " (.*)", re.I)
-
-
 def _move_window(hwnd, x, y, w, h):
     win32gui.MoveWindow(hwnd, x, y, w, h, True)
     win32gui.SetForegroundWindow(hwnd)
+    time.sleep(0.1)
 
 
 def layout(num_windows=2):
     main_frame = win32ui.GetMainFrame().GetSafeHwnd()
-    pycharm_window = _find_window(PYCHARM_PATTERN)
+    pycharm_testenv_window = _find_window(PYCHARM_TESTENV_PATTERN )
     media_player_window = _find_window(MEDIA_PLAYER_PATTERN)
+    eclipse_window = _find_window(ECLIPSE_PATTERN)
 
-    if num_windows > 1 and not pycharm_window:
+    if num_windows > 1 and not pycharm_testenv_window :
         print("[red]PyCharm window not found")
+        os.system('"' + PYCHARM + '" C:/Projekte/SSE/QS/TestEnv')
         return
-    if num_windows > 2 and not media_player_window:
+    if int(num_windows) > 2 and not media_player_window:
         print("[red]Mediaplayer window not found")
         return
 
-    w = 1160
     if num_windows == 1:
-        _move_window(main_frame, 0, 0, screen_w, screen_h)
-    elif num_windows == 2:
-        _move_window(main_frame, screen_w - w, 0, w, screen_h - 20)
-        _move_window(pycharm_window, 0, 0, screen_w - w, screen_h - 20)
+        _move_window(main_frame, IPYTHON_X, 0, screen2_w, screen2_h)
+    elif int(num_windows) == 2:
+        _move_window(main_frame, IPYTHON_X, 0, IPYTHON_W, IPYTHON_H)
+        _move_window(pycharm_testenv_window , PYCHARM_POS[0], PYCHARM_POS[1], screen2_w - IPYTHON_W, IPYTHON_H)
+        if num_windows == 2.1:
+            _move_window(eclipse_window, PYCHARM_POS[0], PYCHARM_POS[1], screen2_w - IPYTHON_W, IPYTHON_H)
     elif num_windows == 3:
-        _move_window(main_frame, screen_w - w, (screen_h - 20) // 2, w, (screen_h - 20) // 2)
-        _move_window(pycharm_window, 0, 0, screen_w - w, screen_h - 20)
-        _move_window(media_player_window, screen_w - w, 0, w, (screen_h - 20) // 2)
+        _move_window(main_frame, IPYTHON_X, (screen2_h - 20) // 2, IPYTHON_W, IPYTHON_H // 2)
+        _move_window(pycharm_testenv_window , 0, 0, screen2_w - w, screen2_h - 20)
+        _move_window(media_player_window, screen2_w - IPYTHON_W, 0, IPYTHON_W, IPYTHON_H // 2)
     win32gui.SetForegroundWindow(main_frame)
 
 
 @interactive
 def scroll():
     while True:
-        time.sleep(1.0)
-
-
-def fd(directory: str = "C:\\", pattern: str = None):
-    """Find directories matching the given regex search"""
-    try:
-        _validate_directory(directory)
-        table = Table(show_header=False)
-        table.add_column(width=100)
-        table.add_column()
-        for root, folders, files in os.walk(directory):
-            for folder in folders:
-                _print_if_match(table, pattern, root, folder)
-        console.print(table)
-    except KeyboardInterrupt:
-        pass
-
-
-SPLASH_TEXT = \
-"""
-8888ba.88ba                    oo                888888ba                    oo                     dP   
-88  `8b  `8b                                     88    `8b                                          88   
-88   88   88 .d8888b. 88d888b. dP 88d8b.d8b.    a88aaaa8P' 88d888b. .d8888b. dP .d8888b. .d8888b. d8888P 
-88   88   88 88'  `88 88'  `88 88 88'`88'`88     88        88'  `88 88'  `88 88 88ooood8 88'  `""   88   
-88   88   88 88.  .88 88    88 88 88  88  88     88        88       88.  .88 88 88.  ... 88.  ...   88   
-dP   dP   dP `88888P8 dP    dP dP dP  dP  dP     dP        dP       `88888P' 88 `88888P' `88888P'   dP   
-"""
+        time.sleep(10.0)
