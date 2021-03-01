@@ -4,7 +4,7 @@ from geometryobjects import *
 class PtolemaeusTheorem(SceneBase):
 
     def construct(self):
-        # self.show_title("Ptolemaeus' Theorem")
+        self.show_title("Ptolemaeus' Theorem")
         # self.camera.frame_center = vec(2, 0, 0)
         O = NullCircle()
         A = NullPoint(O, 0.0, "A", run_time=0.1)

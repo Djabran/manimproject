@@ -13,7 +13,8 @@ from geometryobjects import *
 from eq import *
 from rich import print
 import rich.traceback
-from PtolemaeusTheorem import *
+# from PtolemaeusTheorem import *
+from LogBridge import *
 
 rich.traceback.install()
 
@@ -488,7 +489,9 @@ def mm(production_quality=False):
 
     # SnapshotScene()
     # ProjectiveGeometry1()
-    PtolemaeusTheorem()
+    # PtolemaeusTheorem()
+    config.save_last_frame = True
+    LogBridge()
     get_current_scene().render()
 
 

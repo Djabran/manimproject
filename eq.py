@@ -149,14 +149,17 @@ class Eq(MathTex):
     def __init__(self, *args):
         """
         :param args: if only one argument is given, the string is split into multiple submbojects.
-                    This doesn't work for all TeX expressions, thus, if don't want the string to be split,
+                    This doesn't work for all TeX expressions, thus, if you don't want the string to be split,
                     provide multiple arguments.
         """
         self.operation = None
         if len(args) > 1:
             super().__init__(*args)
         else:
-            super().__init__(*Eq.split_tex(args[0]))
+            if isinstance(args[0], str):
+                super().__init__(*Eq.split_tex(args[0]))
+            else:
+                super().__init__(str(args[0]))
 
     def __str__(self):
         return " ".join([x.tex_string for x in self.submobjects])
@@ -307,6 +310,7 @@ class Eq(MathTex):
         return self.subtract_expr(sym, show_operation=Eq.show_operation, new_line=Eq.new_line, animate=Eq.animate)
 
     def __add__(self, sym):
+        assert type(sym) is not float, "no floats allowed in here"
         if type(sym) is str:
             sym = sympy.sympify(sym)
         return self.add_expr(sym, show_operation=Eq.show_operation, new_line=Eq.new_line, animate=Eq.animate)
