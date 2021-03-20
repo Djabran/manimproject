@@ -305,9 +305,29 @@ def layout(num_windows=2):
     _set_foreground_window(main_frame)
 
 
-def rm(path):
-    if os.path.isdir(path):
-        shutil.rmtree(path)
+def rm(path, pattern=None):
+    if not os.path.exists(path):
+        print(f"Path {path} doesn't exist")
+        return
+    if pattern:
+        if os.path.isdir(path):
+            directory = path
+            def walkfunc(collection, live, root, folders, files, steps):
+                count = 0
+                match_count = 0
+                for file in files:
+                    count += 1
+                    if re.search(pattern, file):
+                        print(f"deleting {root}{file}")
+                        os.unlink(os.path.join(root, file))
+                return match_count, steps
+
+            _walk(walkfunc, directory)
+        else:
+            print(f"{path} is not a directory")
+    else:
+        if os.path.isdir(path):
+            shutil.rmtree(path)
 
 
 _COPY_STATS_PATH = os.path.join(appdirs.user_data_dir(), "copy_stats.json")
@@ -357,10 +377,14 @@ def _robocopy(src, dst, pattern: Iterable = None, exclude_dir: Iterable = None, 
     with open(_COPY_STATS_PATH, "w", encoding="utf-8") as f:
         json.dump(copy_stats, f)
 
-    print("----- stdout -------")
-    print(stdout.decode('cp850'))
-    print("[red]----- stderr -------")
-    print("[red]" + stderr.decode('cp850'))
+    s = stdout.decode('cp850')
+    if s:
+        print("----- stdout -------")
+        print(s)
+    s = stderr.decode('cp850')
+    if s:
+        print("[red]----- stderr -------")
+        print("[red]" + s)
     return proc.returncode
 
 
@@ -371,7 +395,7 @@ def scroll():
 
 
 @interactive
-def tail(filepath, encoding='cp1252'):
+def tail(filepath, encoding='ansi'):
     tail_file = _tail_f(filepath, encoding)
     while True:
         try:
