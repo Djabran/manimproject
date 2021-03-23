@@ -18,8 +18,12 @@ from rich.live import Live
 from rich.table import Table
 from windowsconfig import *
 from typing import Union, Iterable
+import recording
+from context import *
+from threading import Thread
 
 windows = []
+record_thread = None
 
 CODING_MAP = defaultdict(lambda: 'ansi',
                          {
@@ -279,6 +283,13 @@ def find_window(pattern):
         print(win32gui.GetWindowText(window))
 
 
+def git(*args):
+    proc = subprocess.Popen(["git"] + list(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    print(stdout)
+    print("[red]" + stderr)
+
+
 def layout(num_windows=2):
     main_frame = win32ui.GetMainFrame().GetSafeHwnd()
     pycharm_manimproject_window = _find_window(PYCHARM_MANIMPROJECT_PATTERN)
@@ -329,6 +340,22 @@ def rm(path, pattern=None):
         if os.path.isdir(path):
             shutil.rmtree(path)
 
+def playrec(timeout=None):
+    if record_thread:
+        stoprec()
+    recording.play(timeout=timeout)
+
+
+def record():
+    global record_thread
+    record_thread = Thread(target=recording.record)
+    record_thread.start()
+
+
+def rm(path):
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+
 
 _COPY_STATS_PATH = os.path.join(appdirs.user_data_dir(), "copy_stats.json")
 _COPY_STATS_MAXLEN = 42
@@ -377,14 +404,10 @@ def _robocopy(src, dst, pattern: Iterable = None, exclude_dir: Iterable = None, 
     with open(_COPY_STATS_PATH, "w", encoding="utf-8") as f:
         json.dump(copy_stats, f)
 
-    s = stdout.decode('cp850')
-    if s:
-        print("----- stdout -------")
-        print(s)
-    s = stderr.decode('cp850')
-    if s:
-        print("[red]----- stderr -------")
-        print("[red]" + s)
+    print("----- stdout -------")
+    print(stdout.decode('cp850'))
+    print("[red]----- stderr -------")
+    print("[red]" + stderr.decode('cp850'))
     return proc.returncode
 
 
@@ -394,8 +417,18 @@ def scroll():
         time.sleep(1.0)
 
 
+def stoprec():
+    global record_thread
+    if record_thread:
+        recording.stop()
+        record_thread.join()
+        record_thread = None
+    else:
+        print("[red]No recording running")
+
+
 @interactive
-def tail(filepath, encoding='ansi'):
+def tail(filepath, encoding='cp1252'):
     tail_file = _tail_f(filepath, encoding)
     while True:
         try:

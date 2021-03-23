@@ -7,3 +7,5 @@ if PYTHONHOME:
         sys.path.append(PYTHON_SCRIPT_PATH)
 else:
     print("PYTHONHOME not set, not adding PYTHONHOME/Scripts to sys.path")
+
+V=r"D:\media\New Folder\Neuer Ordner\v"

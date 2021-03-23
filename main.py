@@ -466,14 +466,12 @@ def openexplorer():
         print("[red]No current scene")
 
 
-def playvid():
+def getvidpath():
     if get_current_scene():
         filename = get_current_scene().__class__.__name__ + ".mp4"
         folder = os.path.join(config.media_dir, "videos", f"{config.pixel_height}p{config.frame_rate}")
         filepath = os.path.normpath(os.path.join(folder, filename))
-        os.system(filepath)
-        # config.show_in_file_browser = True
-        # open_file_if_needed(get_current_scene().renderer.file_writer)
+        return filepath
     else:
         print("[red]No current scene")
 

@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/manimproject.iml" filepath="$PROJECT_DIR$/.idea/manimproject.iml" />
+      <module fileurl="file://$USER_HOME$/.ipython/profile_default/.idea/profile_default.iml" filepath="$USER_HOME$/.ipython/profile_default/.idea/profile_default.iml" />
     </modules>
   </component>
 </project>

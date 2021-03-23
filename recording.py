@@ -1,4 +1,7 @@
 import sys
+import json
+import PIL
+import keyboard
 
 sys.path.append("P:/Scripts")
 sys.path.append("C:/DevTools/Python/Scripts")
@@ -23,104 +26,16 @@ import timeit
 import time
 import os
 import re
-from threading import Thread
+from pathlib import Path
+from threading import Thread, Lock
 from typing import Sequence, Tuple
 from collections import namedtuple
 import datetime
 
-fps = 6
 stop_recording = False
 SERVER_PORT = 12345
 
-
-def stop():
-    global stop_recording
-    stop_recording = True
-
-
 _DEFAULT_VIDEO_CAPTURE_NAME = "Recorded.wmv"
-
-
-def get_desktop_size():
-    return win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)
-
-
-def record(output_path=_DEFAULT_VIDEO_CAPTURE_NAME, *, show_window=False, capture=False, max_duration=600):
-    global stop_recording
-    scripts_path = os.path.join(os.environ['USERPROFILE'], r"AppData\Roaming\Python\Python38\Scripts")
-
-    if scripts_path not in sys.path:
-        sys.path.append(scripts_path)
-
-    from rpyc_classic import ClassicServer
-    from rpyc.utils.server import ThreadedServer
-    from rpyc import SlaveService
-
-    server = ThreadedServer(SlaveService, port=SERVER_PORT, ipv6=False)
-    print(f"recording to {output_path} (port: {server.port})")
-    server.logger.quiet = True
-    thread = Thread(target=server.start)
-    thread.start()
-
-    codec = cv.VideoWriter_fourcc(*"WMV2")
-    w, h = get_desktop_size()
-    out = cv.VideoWriter(output_path, codec, fps, (w, h))
-
-    if show_window:
-        cv.namedWindow("Recording", cv.WINDOW_NORMAL)
-        cv.resizeWindow("Recording", w, h)
-    if capture:
-        cap = cv.VideoCapture(0)
-    frame_count = 0
-    last_time = timeit.default_timer()
-    idle_count = 0
-    start_time = last_time
-    while not max_duration or timeit.default_timer() - start_time < max_duration:
-        if capture:
-            ret, frame = cap.read()
-            assert ret
-            frame = cv.flip(frame, 0)
-        else:
-            try:
-                img = pyautogui.screenshot()
-            except Exception as ex:
-                print("screenshot failed")
-                continue
-            frame = np.array(img)
-            frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-        out.write(frame)
-        if show_window:
-            cv.imshow('Recording', frame)
-        now = timeit.default_timer()
-        # expected total time: frame_count * fps
-        # actual total time: now - start_time
-        delay = frame_count / fps - now + start_time
-        if delay > 0:
-            time.sleep(delay)
-            idle_count += 1
-        frame_count += 1
-
-        if show_window:
-            if cv.waitKey(1) == ord('q'):
-                break
-
-        if stop_recording:
-            print("record - stop signal")
-            stop_recording = False
-            break
-
-    duration = timeit.default_timer() - start_time
-    print(f"wrote {frame_count} frames ({duration:.3f} sec, {frame_count / duration} fps, idle: {idle_count})")
-    if capture:
-        cap.release()
-
-    out.release()  # closing the video file
-    if show_window:
-        cv.destroyAllWindows()  # destroying the recording window
-
-    server.close()
-    thread.join()
-    print("record - server closed")
 
 
 def _substitute_umlaute(s):
@@ -130,19 +45,237 @@ def _substitute_umlaute(s):
     return s
 
 
-def play(filepath=_DEFAULT_VIDEO_CAPTURE_NAME,
-         timeout=20.0,
-         repeat=True,
-         captions=Sequence[Tuple[float, str, str, str]],
-         offset=3.5,
-         pause=2,
-         show_window=False):
+def get_desktop_size():
+    return win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)
+
+
+def play(filepath=_DEFAULT_VIDEO_CAPTURE_NAME, timeout=20.0, repeat=True, fullscreen=False, display_frame=False):
+    from itools import _set_foreground_window, _find_window, _move_window
+    from windowsconfig import MONITOR_INFO_MAIN
+    global stop_playback, stop_mode, step_mode, backwards_mode, mutex
+
+    cap = cv.VideoCapture(filepath)
+    if cap.isOpened():
+        window = cv.namedWindow(filepath, cv.WINDOW_NORMAL)
+        window = None
+        if fullscreen:
+            cv.setWindowProperty(filepath, cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
+        else:
+            w, h = int(cap.get(cv.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+            cv.resizeWindow(filepath, w, h)
+            # w, h = get_desktop_size()
+            # cv.resizeWindow(filepath, w // 2, h // 2)
+            # time.sleep(0.01)
+            hwnd = _find_window(filepath.replace("\\", "\\\\").replace(".", "\\."))
+            if hwnd:
+                mw, mh = MONITOR_INFO_MAIN.width, MONITOR_INFO_MAIN.height
+                if h > mh:
+                    scale = mh / h
+                    h = h * scale
+                    w = w * scale
+                if w > mw:
+                    scale = mw / w
+                    h = h * scale
+                    w = w * scale
+                w, h = int(w), int(h)
+                _move_window(hwnd, int(mw - w), 0, w, h)
+                _set_foreground_window(hwnd)
+            else:
+                print(f"no hwnd for {filepath}")
+
+        frame_count = 0
+        idle_count = 0
+        start_time = timeit.default_timer()
+        fps = cap.get(cv.CAP_PROP_FPS)
+        stop_mode = False
+        step = 0
+        stop_playback = False
+
+        mutex = Lock()
+
+        def keyboard_callback(key: keyboard.KeyboardEvent):
+            global stop_playback, stop_mode, step_mode, mutex
+            if key.name == 'esc':
+                mutex.acquire()
+                print("abort")
+                stop_playback = True
+                mutex.release()
+            elif key.name == 'nach-rechts':
+                mutex.acquire()
+                if not stop_mode:
+                    stop_mode = True
+                else:
+                    stop_mode = False
+                    step = 1
+                mutex.release()
+            elif key.name == 'nach-links' and frame_count > 0:
+                mutex.acquire()
+                if not stop_mode:
+                    stop_mode = True
+                    step = -1
+                else:
+                    stop_mode = False
+                    step = -1
+                mutex.release()
+            elif key.name == 'space':
+                mutex.acquire()
+                stop_mode = not stop_mode
+                mutex.release()
+
+        keyboard.on_press(keyboard_callback)
+
+        last_image = None
+
+        try:
+            while not stop_playback and cap.isOpened() and (not timeout or timeit.default_timer() - start_time < timeout):
+                mutex.acquire()
+                if stop_mode:
+                    if step == -1:
+                        if last_image is not None:
+                            frame = last_image
+                            frame_count -= 1
+                    elif step == 0:
+                        pass
+                    elif step == 1:
+                        pass
+                    stop_mode = False
+                else:
+                    if step == 0:
+                        ret, frame = cap.read()
+                        last_image = frame
+                        frame_count += 1
+                    elif step == -1:
+                        pass
+                    elif step == 1:
+                        pass
+                mutex.release()
+                if frame is not None:
+                    cv.imshow(filepath, frame)
+                    cv.waitKey(1)
+                    now = timeit.default_timer()
+                    delay = frame_count / fps - now + start_time
+                    if delay > 0:
+                        time.sleep(delay)
+                        idle_count += 1
+                    mutex.acquire()
+                    if step == -1:
+                        cap.release()
+                        cap = cv.VideoCapture(filepath)
+                        for i in range(frame_count - 3):
+                            ret, last_image = cap.read()
+                        frame_count -= 2
+                    mutex.release()
+                else:
+                    if repeat:
+                        cap.release()
+                        cap = cv.VideoCapture(filepath)
+                    else:
+                        break
+        finally:
+            time.sleep(0.001)
+            cap.release()
+            cv.destroyAllWindows()
+        print(f"Played {frame_count} frames at {fps} fps ({frame_count / fps}s), idle: {idle_count}, size: {w}x{h}")
+    else:
+        print(f"'{filepath}' not found")
+
+
+def record(output_path=_DEFAULT_VIDEO_CAPTURE_NAME, *, max_duration=600, fps=6):
+    global stop_recording
+
+    scripts_path = Path(os.environ['USERPROFILE']) \
+                   / rf"AppData\Roaming\Python\Python{sys.version_info.major}{sys.version_info.minor}\Scripts"
+
+    if scripts_path not in sys.path:
+        sys.path.append(scripts_path)
+
+    from rpyc_classic import ClassicServer
+    from rpyc.utils.server import ThreadedServer
+    from rpyc import SlaveService
+
+    try:
+        server = ThreadedServer(SlaveService, port=SERVER_PORT, ipv6=False)
+        print(f"recording to {output_path} (port: {server.port})")
+        server.logger.quiet = True
+        thread = Thread(target=server.start)
+        thread.start()
+        adjust_fps_frame_count = 10
+        skip_adjust_fps_frame_count = 5
+        fps_offset = 1
+        try:
+            codec = cv.VideoWriter_fourcc(*"WMV2")
+            w, h = get_desktop_size()
+            writer = cv.VideoWriter(output_path, codec, fps, (w, h))
+
+            frame_count = idle_count = 0
+            start_time = timeit.default_timer()
+            stop_recording = False
+            first_fps = None
+            fps_list = []
+            last_time = timeit.default_timer()
+            orig_fps = fps
+
+            while (not max_duration or timeit.default_timer() - start_time < max_duration) and not stop_recording:
+                try:
+                    img = pyautogui.screenshot()
+                except Exception as ex:
+                    print("screenshot failed")
+                    continue
+                frame = np.array(img)
+                frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+                writer.write(frame)
+                now = timeit.default_timer()
+                delay = frame_count / fps - now + start_time
+                frame_count += 1
+                if fps_list is not None:
+                    fps_list.append(1 / (now - last_time))
+                if frame_count <= adjust_fps_frame_count and frame_count > skip_adjust_fps_frame_count:
+                    if fps_list[-1] < orig_fps:
+                        print(f"actual fps: {fps_list[-1] - fps_offset}")
+                elif frame_count > adjust_fps_frame_count and fps_list:
+                    print(f"adjust fps: {fps_list[-1] - fps_offset}")
+                    writer.release()
+                    writer = cv.VideoWriter(output_path, codec, fps, (w, h))
+                    fps_list = None
+
+                if delay > 0:
+                    idle_count += 1
+                    time.sleep(delay)
+                last_time = timeit.default_timer()
+
+            duration = timeit.default_timer() - start_time
+            actual_fps = frame_count / duration
+            print(f"wrote {frame_count} frames ({duration:.3f} sec, {actual_fps} fps - "
+                  f"first fps: {first_fps}, idle: {idle_count})")
+            if actual_fps < fps:
+                print("correcting fps:")
+            if fps_list is not None:
+                for fps in fps_list[:10]:
+                    print(f"{fps}")
+        finally:
+            writer.release()  # closing the video file
+            with open("fps.data", "w", encoding="utf-8") as f:
+                json.dump(fps_list, f)
+    finally:
+        server.close()
+        thread.join()
+        print("record - server closed")
+
+
+def render_captions(filepath=_DEFAULT_VIDEO_CAPTURE_NAME,
+                    timeout=20.0,
+                    repeat=True,
+                    captions: Sequence[Tuple[float, str, str, str]] = (),
+                    offset=3.5,
+                    pause=2,
+                    show_window=False):
     if show_window:
         from itools import _set_foreground_window, _find_window
         window = cv.namedWindow(filepath, cv.WINDOW_NORMAL)
         w, h = get_desktop_size()
         cv.resizeWindow(filepath, w // 2, h // 2)
         time.sleep(0.01)
+        filepath = filepath.replace("\\", "\\\\").replace(".", "\\.")
         hwnd = _find_window(filepath)
         if hwnd:
             _set_foreground_window(hwnd)
@@ -180,32 +313,7 @@ def play(filepath=_DEFAULT_VIDEO_CAPTURE_NAME,
         old_scenario = None
         old_feature = None
 
-        def text(s, pos, color=(0xff, 0xff, 0xff)):
-            textsize = cv.getTextSize(s, font, fontscale, 2)[0]
-            textwidth, textheight = tuple(textsize)
-            textwidth2 = textwidth + 4
-            textheight2 = cv.getTextSize(s, font, fontscale * textwidth2 / textwidth, 2)[0][1]
-            subimg_coords = pos.y - textheight2 - RECT_MARGIN, pos.y + textheight2 - textheight + RECT_MARGIN,\
-                            pos.x, pos.x + textwidth2
-            subimg_h, subimg_w = subimg_coords[1] - subimg_coords[0], subimg_coords[3] - subimg_coords[2]
-            subimg = frame[subimg_coords[0]:subimg_coords[1], subimg_coords[2]:subimg_coords[3]]
-            if subimg.shape[1] < subimg_w or subimg.shape[0] < subimg_h:
-                subimg_w = min(subimg_w, subimg.shape[1])
-                subimg_h = min(subimg_h, subimg.shape[0])
-            new_subimg = np.zeros((subimg_h, subimg_w, 3), np.uint8)
-            try:
-                new_subimg = cv.addWeighted(new_subimg, 1.0, subimg, 0.7, 1.0)
-            except cv.error as ex:
-                print(ex)
-            # assert new_subimg is not None, f"new_subimg: {new_subimg}"
-            if new_subimg is not None:
-                frame[subimg_coords[0]:subimg_coords[0] + subimg_h, subimg_coords[2]:subimg_coords[2] + subimg_w] = new_subimg
-                cv.putText(frame, s, (pos.x - 3, pos.y), font, fontscale * textwidth2 / textwidth, (120, 80, 80),
-                           5, cv.LINE_AA)
-                cv.putText(frame, s, (pos.x, pos.y), font, fontscale, color, 2, cv.LINE_AA)
-            else:
-                print(f"error creating subimage at frame {frame_count}")
-            return Pos(x=pos.x, y=pos.y + textheight + 18)
+        step, scenario, feature = None, None, None
 
         while cap.isOpened() and (not timeout or timeit.default_timer() - start_time < timeout):
             ret, frame = cap.read()
@@ -230,9 +338,9 @@ def play(filepath=_DEFAULT_VIDEO_CAPTURE_NAME,
                         frame = cv.blur(frame, (5, 5))
                         print("blurred pause")
 
-                    pos = text(feature, Pos(60, 40), (0x50, 0xb0, 0x50))
-                    pos = text(scenario, pos, (0x80, 0xc0, 0x55))
-                    pos = text(step, pos, (0xff, 0xff, 0xff))
+                    pos = text(frame, feature, Pos(60, 40), (0x50, 0xb0, 0x50))
+                    pos = text(frame, scenario, pos, (0x80, 0xc0, 0x55))
+                    pos = text(frame, step, pos, (0xff, 0xff, 0xff))
 
                 if show_window:
                     key = cv.waitKey(1) & 0xFF
@@ -275,7 +383,41 @@ def play(filepath=_DEFAULT_VIDEO_CAPTURE_NAME,
             out.release()  # closing the video file
 
 
-if __name__ == '__main__':
+def stop():
+    global stop_recording
+    stop_recording = True
+
+
+def text(frame, s, pos, color=(0xff, 0xff, 0xff)):
+    textsize = cv.getTextSize(s, font, fontscale, 2)[0]
+    textwidth, textheight = tuple(textsize)
+    textwidth2 = textwidth + 4
+    textheight2 = cv.getTextSize(s, font, fontscale * textwidth2 / textwidth, 2)[0][1]
+    subimg_coords = pos.y - textheight2 - RECT_MARGIN, pos.y + textheight2 - textheight + RECT_MARGIN, \
+                    pos.x, pos.x + textwidth2
+    subimg_h, subimg_w = subimg_coords[1] - subimg_coords[0], subimg_coords[3] - subimg_coords[2]
+    subimg = frame[subimg_coords[0]:subimg_coords[1], subimg_coords[2]:subimg_coords[3]]
+    if subimg.shape[1] < subimg_w or subimg.shape[0] < subimg_h:
+        subimg_w = min(subimg_w, subimg.shape[1])
+        subimg_h = min(subimg_h, subimg.shape[0])
+    new_subimg = np.zeros((subimg_h, subimg_w, 3), np.uint8)
+    try:
+        new_subimg = cv.addWeighted(new_subimg, 1.0, subimg, 0.7, 1.0)
+    except cv.error as ex:
+        print(ex)
+    # assert new_subimg is not None, f"new_subimg: {new_subimg}"
+    if new_subimg is not None:
+        frame[subimg_coords[0]:subimg_coords[0] + subimg_h,
+        subimg_coords[2]:subimg_coords[2] + subimg_w] = new_subimg
+        cv.putText(frame, s, (pos.x - 3, pos.y), font, fontscale * textwidth2 / textwidth, (120, 80, 80),
+                   5, cv.LINE_AA)
+        cv.putText(frame, s, (pos.x, pos.y), font, fontscale, color, 2, cv.LINE_AA)
+    else:
+        print(f"error creating subimage at frame {frame_count}")
+    return Pos(x=pos.x, y=pos.y + textheight + 18)
+
+
+def render_behave():
     # record("movie.wmv", max_duration=20)
     # logpath = "T:/Tests/out/SSE_Win10/run_Win10_minimal.log"
     # movie = "C:/Projekte/SSE/QS/Tests/features/Behave-Inhaltlich_1_Gewinnermittlung_tr238_ELSTER-Versand.wmv"
@@ -336,3 +478,9 @@ if __name__ == '__main__':
     print(f"{len(captions)} captions")
     play(movie, timeout=0, captions=captions, repeat=False, show_window=False, pause=2,
          offset=(time_offset + datetime.timedelta(seconds=6)).total_seconds())
+
+if __name__ == '__main__':
+    from itools import getfiles
+    from context import V
+    vids = getfiles(V, by_date=True)
+    play(vids[0], timeout=0, repeat=False, fullscreen=False)
