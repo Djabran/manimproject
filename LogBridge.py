@@ -6,7 +6,7 @@ class LogBridge(SceneBase):
 
     def construct(self):
 
-        # self.show_title("Log Bridge")
+        self.show_title("Log Bridge")
 
         rects = [Rectangle(width=2, height=0.5).to_edge(DL)]
         C_n = 1.0

@@ -163,12 +163,14 @@ class NullCircle(Circle):
 
 class LDot(VGroup, SceneElement):
 
+    CONFIG = { "radius": 0.08 }
+
     def align_points_with_larger(self, larger_mobject):
         pass
 
     label_offset = vec(0.3, -0.3, 0)
 
-    def __init__(self, *label_args, pos=(0, 0), radius=0.08, color=WHITE, dot_class=None,
+    def __init__(self, *label_args, pos=(0, 0), radius=CONFIG["radius"], color=WHITE, dot_class=None,
                  anims=None, draw_bases=False, **kwargs):
         if dot_class is None:
             dot_class = Sphere if len(pos) == 3 else Dot

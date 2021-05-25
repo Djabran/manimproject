@@ -8,4 +8,4 @@ if PYTHONHOME:
 else:
     print("PYTHONHOME not set, not adding PYTHONHOME/Scripts to sys.path")
 
-V=r"D:\media\New Folder\Neuer Ordner\v"
+V = r"D:\media\New Folder\Neuer Ordner\v"

@@ -8,13 +8,17 @@ from manim.__main__ import main, open_file_if_needed, open_media_file
 from colors import *
 from manim.constants import *
 from glob import glob
-#import monkey
+# import monkey
 from geometryobjects import *
 from eq import *
 from rich import print
 import rich.traceback
 # from PtolemaeusTheorem import *
-from LogBridge import *
+# from LogBridge import *
+from InverseMatrix import *
+from configparser import ConfigParser, DEFAULTSECT
+from typing import Callable, Union, Tuple
+from lineartrans import *
 
 rich.traceback.install()
 
@@ -22,11 +26,13 @@ config.background_color = '#002b36'
 
 logger.setLevel(logging.WARNING)
 
+import IPython
+
 
 class ConeTest(SceneBase):
 
     def construct(self):
-        self.set_camera_orientation(60*DEGREES, -75*DEGREES, distance=20, gamma=0*DEGREES)
+        self.set_camera_orientation(60 * DEGREES, -75 * DEGREES, distance=20, gamma=0 * DEGREES)
         Axes3D(self)
         Cone(RIGHT, ORIGIN, radius=0.2)
         self.wait()
@@ -37,7 +43,7 @@ class ProjectiveGeometry3d(SceneBase):
     def construct(self):
         self.show_title("Planes")
 
-        self.set_camera_orientation(60*DEGREES, -90*DEGREES, distance=20, gamma=0*DEGREES)
+        self.set_camera_orientation(60 * DEGREES, -90 * DEGREES, distance=20, gamma=0 * DEGREES)
 
         Axes3D(self)
 
@@ -59,7 +65,7 @@ class ProjectiveGeometry3d(SceneBase):
         # v.shift(np.array([0,0,0.5]))
         # self.add(v)
 
-        v = Line(vec(0,0,0), vec(1,1,1))
+        v = Line(vec(0, 0, 0), vec(1, 1, 1))
         self.add(v)
 
         # self.add(LabeledVector(P.pos()))
@@ -110,7 +116,7 @@ class LineIntersection(Scene):
         })
 
         text = TextBlock("Two lines ", "$a$", " and ", "$b$", " each given by a pair of points", color_map=color_map)
-        text.last().move_to(3*UP)
+        text.last().move_to(3 * UP)
         self.play(Write(text.last(), run_time=0.5))
         self.bring_to_front(text.last())
         coords_a_0 = (2, -2)
@@ -160,11 +166,11 @@ class LineIntersection(Scene):
         text.append_tex(tex_a_0_y, "+", "a'", "(x-", tex_a_0_x, ")=",
                         tex_b_0_y, "+", "b'", "(x-", tex_b_0_x, ")",
                         color_map=color_map,
-                        pos=3*LEFT + 2*UP)
+                        pos=3 * LEFT + 2 * UP)
 
         text.append_tex(tex_a_0_y, "+", "a'", "(x-", tex_a_0_x, ")=",
                         tex_b_0_y, "+", "b'", "(x-", tex_b_0_x, ")",
-                        pos=3*LEFT + 2*UP)
+                        pos=3 * LEFT + 2 * UP)
 
         # text.append(f"${{{tex_a_0}}}_y$", "$-$", f"${{{tex_b_0}}}_y$", "$=$",
         #             "$b'$", "$(x-$", f"${{{tex_b_0}}}_x$", "$)-$", "$a'$", "$(x-$", f"${{{tex_a_0}}}_x$", "$)$",
@@ -176,7 +182,7 @@ class LineIntersection(Scene):
 
         text.append_tex("x={", tex_a_0_y, "-", tex_b_0_y, "+",
                         tex_b_0_x, "b'", "-", tex_a_0_x, "a'", r" \over ", "b'", "-", "a'", "}",
-                        pos=3*LEFT + UP)
+                        pos=3 * LEFT + UP)
 
         # text.append_tex(r"1", r"\over", r"7",
         #                 pos=3*LEFT)
@@ -189,10 +195,10 @@ class LineIntersection(Scene):
         #             pos=4*LEFT + UP)
 
         text.append("$a$", "$=$", f"${{{tex_a_0}}}_y$", "$+$", "$a'$", "$(x-$", f"${{{tex_a_0}}}_x$", "$)$",
-                    pos=4*LEFT + 2*DOWN)
+                    pos=4 * LEFT + 2 * DOWN)
 
         text.append("$b$", "$=$", f"${{{tex_b_0}}}_y$", "$+$", "$b'$", "$(x-$", f"${{{tex_b_0}}}_x$", "$)$",
-                    pos=4*LEFT + 3*DOWN)
+                    pos=4 * LEFT + 3 * DOWN)
 
 
 class ProjectiveGeometry(SceneBase):
@@ -221,7 +227,7 @@ class ProjectiveGeometry(SceneBase):
         phi = 0, theta = -90° 
         """
         # self.set_camera_orientation(-15 * DEGREES, -30 * DEGREES, distance=20, gamma=60*DEGREES)
-        self.set_camera_orientation(60*DEGREES, -90*DEGREES, distance=20, gamma=0*DEGREES)
+        self.set_camera_orientation(60 * DEGREES, -90 * DEGREES, distance=20, gamma=0 * DEGREES)
         null_sphere = NullSphere()
 
         null_point = NullPoint(null_sphere, (Proportion(0), Proportion(1, 5)), label="O")
@@ -263,12 +269,12 @@ class ProjectiveGeometry(SceneBase):
         #     tex_P_y + tex_Q_y + "-" + (tex_P_y + "^2") +\
         #     "+" + tex_P_z + tex_Q_z + "-" + (tex_P_z + "^2") + "=0"
 
-        textblock += TeX\
-            (P_x)(Q_x)("+")(P_y)(Q_y)("+")(P_z)(Q_z)("=")\
+        textblock += TeX \
+            (P_x)(Q_x)("+")(P_y)(Q_y)("+")(P_z)(Q_z)("=") \
             (P_x + "^2")("+")(P_y + "^2")("+")(P_z + "^2")
 
-        textblock += TeX\
-            (Q_x)("={")(P_x + "^2")("+")(P_y + "^2")("+")(P_z + "^2")\
+        textblock += TeX \
+            (Q_x)("={")(P_x + "^2")("+")(P_y + "^2")("+")(P_z + "^2") \
             ("-")(P_y)(Q_y)("-")(P_z)(Q_z)(r"\over")(P_x)("}")
 
         textblock.clear()
@@ -281,9 +287,9 @@ class ProjectiveGeometry(SceneBase):
         v_1_z = r"\vec v_{\scriptscriptstyle1_{\scriptscriptstyle z}}"
         n_z = r"\vec n_{\scriptscriptstyle z}"
 
-        textblock += TeX\
+        textblock += TeX \
             (rf"{v_1} \cdot \vec n = 0")
-        textblock += TeX\
+        textblock += TeX \
             (v_1_x)(n_x)("+")(v_1_y)(n_y)("+")(v_1_z)(n_z)("=0")
 
         N = Vector(null_plane.n, tip_length=0.1, stroke_width=3)
@@ -476,22 +482,79 @@ def getvidpath():
         print("[red]No current scene")
 
 
-def mm(production_quality=False):
+lastscene = None
 
-    if production_quality:
-        q = QUALITIES["production_quality"]
+try:
+    with open('manimproject.ini', 'r', encoding='utf-8') as f:
+        _cp = ConfigParser()
+        _cp.read_file(f)
+        lastscene = _cp.get(DEFAULTSECT, "lastscene", fallback=None)
+except FileNotFoundError:
+    pass
+
+
+def mm(production_quality=False, snapshot=True, scene: Callable = None):
+    if scene:
+        global lastscene
+        lastscene = scene
+        with open('manimproject.ini', 'w', encoding='utf-8') as f:
+            cp = ConfigParser()
+            cp.set(DEFAULTSECT, "lastscene", lastscene.__name__)
+            cp.write(f)
+
+    if not lastscene and not scene:
+        print("[red]No current scene set")
+        return
+
+    if snapshot:
+        config.pixel_width = 1280
+        config.pixel_height = 720
     else:
-        q = QUALITIES["low_quality"]
-    for attr in ("pixel_width", "pixel_height", "frame_rate"):
-        setattr(config, attr, q[attr])
+        if production_quality:
+            q = QUALITIES["production_quality"]
+        else:
+            q = QUALITIES["low_quality"]
+        for attr in ("pixel_width", "pixel_height", "frame_rate"):
+            setattr(config, attr, q[attr])
 
     # SnapshotScene()
     # ProjectiveGeometry1()
     # PtolemaeusTheorem()
-    config.save_last_frame = True
-    LogBridge()
-    get_current_scene().render()
+    config.save_last_frame = snapshot
+    # LogBridge()
+    # InverseMatrix()
+    # MatrixMultiplication()
+    lastscene()
+    render()
+
+import subprocess
+
+
+def liveimage():
+    imagepath = rf"C:\Projects\manimproject\media\images\{cs().__class__.__name__}.png"
+    subprocess.Popen(["python", f"scripts/liveimage.py", f"--file={imagepath}"], cwd=r"C:\Projects\djabran")
+
+
+def cs():
+    return get_current_scene()
+
+
+def profile():
+    IPython.get_ipython().config.InteractiveShellApp.extensions = ['autoreload']
+    IPython.get_ipython().magic("autoreload 2")
 
 
 if __name__ == '__main__':
     mm()
+    # IPython.embed()
+
+SPLASH_TEXT = \
+    """
+    
+    .88b  d88.  .d8b.  d8b   db d888888b .88b  d88.      d8888b. d8888b.  .d88b.     d88b d88888b  .o88b. d888888b 
+    88'YbdP`88 d8' `8b 888o  88   `88'   88'YbdP`88      88  `8D 88  `8D .8P  Y8.    `8P' 88'     d8P  Y8 `~~88~~' 
+    88  88  88 88ooo88 88V8o 88    88    88  88  88      88oodD' 88oobY' 88    88     88  88ooooo 8P         88    
+    88  88  88 88~~~88 88 V8o88    88    88  88  88      88~~~   88`8b   88    88     88  88~~~~~ 8b         88    
+    88  88  88 88   88 88  V888   .88.   88  88  88      88      88 `88. `8b  d8' db. 88  88.     Y8b  d8    88    
+    YP  YP  YP YP   YP VP   V8P Y888888P YP  YP  YP      88      88   YD  `Y88P'  Y8888P  Y88888P  `Y88P'    YP    
+    """

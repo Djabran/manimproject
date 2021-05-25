@@ -1,12 +1,23 @@
 import sys
 import json
-import PIL
 import keyboard
-
-sys.path.append("P:/Scripts")
-sys.path.append("C:/DevTools/Python/Scripts")
-sys.path.append("C:/Projekte/SSE/QS/TestEnv")
+import timeit
+import time
+import os
+import re
+from pathlib import Path
+from threading import Thread, Lock
+from typing import Sequence, Tuple
+from collections import namedtuple
+import datetime
+import subprocess
 import win32api
+
+if os.environ['USERNAME'] != 'djabran':
+    sys.path.append("P:/Scripts")
+    sys.path.append("C:/DevTools/Python/Scripts")
+    sys.path.append("C:/Projekte/SSE/QS/TestEnv")
+
 # import setup_python_for_testenv as spt
 # spt.uninstall("plumbum")
 # spt.import_module("plumbum")
@@ -18,19 +29,10 @@ import win32api
 # spt.import_module("pyautogui")
 # spt.import_module("numpy")
 # spt.import_module("rpyc")
-import rpyc
+
 import cv2 as cv  # OpenCV
 import pyautogui
 import numpy as np
-import timeit
-import time
-import os
-import re
-from pathlib import Path
-from threading import Thread, Lock
-from typing import Sequence, Tuple
-from collections import namedtuple
-import datetime
 
 stop_recording = False
 SERVER_PORT = 12345
@@ -127,7 +129,8 @@ def play(filepath=_DEFAULT_VIDEO_CAPTURE_NAME, timeout=20.0, repeat=True, fullsc
         last_image = None
 
         try:
-            while not stop_playback and cap.isOpened() and (not timeout or timeit.default_timer() - start_time < timeout):
+            while not stop_playback and cap.isOpened() and (
+                    not timeout or timeit.default_timer() - start_time < timeout):
                 mutex.acquire()
                 if stop_mode:
                     if step == -1:
@@ -189,7 +192,6 @@ def record(output_path=_DEFAULT_VIDEO_CAPTURE_NAME, *, max_duration=600, fps=6):
     if scripts_path not in sys.path:
         sys.path.append(scripts_path)
 
-    from rpyc_classic import ClassicServer
     from rpyc.utils.server import ThreadedServer
     from rpyc import SlaveService
 
@@ -479,8 +481,20 @@ def render_behave():
     play(movie, timeout=0, captions=captions, repeat=False, show_window=False, pause=2,
          offset=(time_offset + datetime.timedelta(seconds=6)).total_seconds())
 
+
+def mergeav(audio: str = None, video: str = None):
+    # filepath = _DEFAULT_VIDEO_CAPTURE_NAME
+    if not audio:
+        audio = 'media/audio/20th.wav'
+    if not video:
+        video = 'media/videos/1080p30/20th0001-0620.mkv'
+    cmd = f'ffmpeg -i {audio} -i {video} media/videos/merge.mp4'
+    subprocess.call(cmd)
+
+
 if __name__ == '__main__':
     from itools import getfiles
     from context import V
+
     vids = getfiles(V, by_date=True)
     play(vids[0], timeout=0, repeat=False, fullscreen=False)

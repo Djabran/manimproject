@@ -12,7 +12,10 @@ AG = AnimationGroup
 
 
 def vec(*args):
-    return np.array(list(args))
+    if len(args) == 2:
+        return np.array(list(args) + [0])
+    else:
+        return np.array(list(args))
 
 
 current_scene = None
@@ -96,6 +99,20 @@ class TeX:
 
 class MText(TeX):
     pass
+
+
+
+class SceneBase2d(Scene):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        set_current_scene(self)
+
+    def show_title(self, title):
+        text_title = Tex(title)
+        self.add(text_title)
+        self.wait()
+        self.play(FadeOut(text_title))
 
 
 class SceneBase(ThreeDScene):
@@ -292,6 +309,10 @@ def get_current_scene():
 
 def play(*args, **kwargs):
     current_scene.play(*args, **kwargs)
+
+
+def render():
+    current_scene.render()
 
 
 def wait(secs=1.0):
