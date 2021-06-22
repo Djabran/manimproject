@@ -4,7 +4,7 @@ import manim
 import logging
 from itertools import chain
 from manim import *
-from manim.__main__ import main, open_file_if_needed, open_media_file
+from manim.__main__ import main
 from colors import *
 from manim.constants import *
 from glob import glob
@@ -464,13 +464,13 @@ class SnapshotScene(SceneBase):
         wait()
 
 
-def openexplorer():
-    if get_current_scene():
-        config.show_in_file_browser = True
-        open_file_if_needed(get_current_scene().renderer.file_writer)
-    else:
-        print("[red]No current scene")
-
+# def openexplorer():
+#     if get_current_scene():
+#         config.show_in_file_browser = True
+#         open_file_if_needed(get_current_scene().renderer.file_writer)
+#     else:
+#         print("[red]No current scene")
+#
 
 def getvidpath():
     if get_current_scene():
@@ -493,7 +493,7 @@ except FileNotFoundError:
     pass
 
 
-def mm(production_quality=False, snapshot=True, scene: Callable = None):
+def mm(production_quality=False, snapshot=False, scene: Callable = None):
     if scene:
         global lastscene
         lastscene = scene
@@ -521,6 +521,7 @@ def mm(production_quality=False, snapshot=True, scene: Callable = None):
     # ProjectiveGeometry1()
     # PtolemaeusTheorem()
     config.save_last_frame = snapshot
+    config.video_dir = "notebooks"
     # LogBridge()
     # InverseMatrix()
     # MatrixMultiplication()
@@ -545,7 +546,7 @@ def profile():
 
 
 if __name__ == '__main__':
-    mm()
+    mm(scene=AV)
     # IPython.embed()
 
 SPLASH_TEXT = \

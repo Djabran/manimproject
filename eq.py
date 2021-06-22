@@ -167,7 +167,7 @@ class Eq(MathTex):
     def is_identical(self, eq):
         return str(self) == str(eq)
 
-    def get_expressions(self, expressions=None) -> sympy.symbol:
+    def get_expressions(self, expressions=None) -> sympy.Symbol:
         """
         :return: a list of the expressions between the equal signs as sympy symbols
         """
